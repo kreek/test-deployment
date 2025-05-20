@@ -54,12 +54,12 @@ jobs:
 
       - name: Update deployment branch with frontend build
         run: |
-          # Check if deployment branch exists (properly handling non-zero exit code)
+          # Check if deployment branch exists
           git fetch origin
           if git ls-remote --heads origin ${{ env.DEPLOYMENT_BRANCH }} | grep -q ${{ env.DEPLOYMENT_BRANCH }}; then
             echo "Deployment branch exists. Updating it..."
-            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}:${{ env.DEPLOYMENT_BRANCH }}
-            git checkout ${{ env.DEPLOYMENT_BRANCH }}
+            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}
+            git checkout -b ${{ env.DEPLOYMENT_BRANCH }} --track origin/${{ env.DEPLOYMENT_BRANCH }}
           else
             echo "Deployment branch does not exist. Creating it..."
             # Create new orphan branch if it doesn't exist
@@ -83,22 +83,25 @@ jobs:
           fi
           
           # Copy frontend build files
-          # First check if build directory exists at standard SvelteKit location
-          if [ -d "./frontend/build" ]; then
+          echo "Locating build output directory..."
+          if [ -d "./frontend/build" ] && [ "$(ls -A ./frontend/build)" ]; then
+            echo "Found build files at ./frontend/build"
             cp -r ./frontend/build/* .
-          # Otherwise check if it's at the .svelte-kit/output/prerendered directory
-          elif [ -d "./frontend/.svelte-kit/output/prerendered" ]; then
+          elif [ -d "./frontend/.svelte-kit/output/prerendered" ] && [ "$(ls -A ./frontend/.svelte-kit/output/prerendered)" ]; then
+            echo "Found build files at ./frontend/.svelte-kit/output/prerendered"
             cp -r ./frontend/.svelte-kit/output/prerendered/* .
-          # As a last resort, check if it's at the standard static build location
           else
-            echo "Checking alternative build locations..."
-            find ./frontend -type d -name "build" -o -name "dist" -o -name "public" | while read dir; do
-              if [ -d "$dir" ] && [ "$(ls -A $dir)" ]; then
-                echo "Found build files at $dir"
-                cp -r $dir/* .
-                break
-              fi
-            done
+            # Fallback: search for any build directory
+            echo "Searching for build directory..."
+            build_dir=$(find ./frontend -type d -name "build" -not -path "*/node_modules/*" | head -n 1)
+            if [ -n "$build_dir" ] && [ -d "$build_dir" ] && [ "$(ls -A $build_dir)" ]; then
+              echo "Found build files at $build_dir"
+              cp -r $build_dir/* .
+            else
+              echo "ERROR: Build files not found!"
+              ls -la ./frontend/
+              exit 1
+            fi
           fi
           
           # Create .nojekyll file to disable Jekyll processing
@@ -119,8 +122,8 @@ jobs:
           # Create a temporary directory for the artifact
           mkdir -p /tmp/github-pages
           
-          # Copy all files from the deployment branch
-          cp -r . /tmp/github-pages/
+          # Copy all files (except .git) from the deployment branch
+          cp -r $(ls -A | grep -v "^\.git$") /tmp/github-pages/
           
           # Change to the temp directory and create the artifact
           cd /tmp/github-pages

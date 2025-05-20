@@ -46,11 +46,13 @@ jobs:
 
       - name: Update deployment branch with data
         run: |
-          # Check if deployment branch exists (properly handling non-zero exit code)
+          # Check if deployment branch exists
           if git ls-remote --heads origin ${{ env.DEPLOYMENT_BRANCH }} | grep -q ${{ env.DEPLOYMENT_BRANCH }}; then
             echo "Deployment branch exists. Updating it..."
             # Clone the existing deployment branch to preserve frontend files
+            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}
             mkdir -p /tmp/deployment-branch
+
             git fetch origin ${{ env.DEPLOYMENT_BRANCH }}:${{ env.DEPLOYMENT_BRANCH }}
             git worktree add --detach /tmp/deployment-branch ${{ env.DEPLOYMENT_BRANCH }}
             cd /tmp/deployment-branch
