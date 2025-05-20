@@ -1,12 +1,6 @@
 name: Deploy Frontend
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
   repository_dispatch:
     types: [trigger-frontend-build]
   workflow_dispatch:
@@ -43,11 +37,24 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.FRONTEND_DIR }}
-        run: npm ci
+        run: |
+          set -e
+          npm ci
 
       - name: Build frontend
         working-directory: ${{ env.FRONTEND_DIR }}
-        run: npm run build
+        run: |
+          set -e
+          npm run build
+
+      - name: Verify build
+        run: |
+          set -e
+          if [ ! -f "${{ env.BUILD_DIR }}/index.html" ]; then
+            echo "Error: Built files appear to be invalid"
+            exit 1
+          fi
+          echo "Build verification passed"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -79,47 +86,72 @@ jobs:
 
       - name: Configure Git
         run: |
+          set -e
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
       - name: Update deployment branch with frontend files
         run: |
+          set -e
           # Check if deployment branch exists
           if git ls-remote --heads origin ${{ env.DEPLOYMENT_BRANCH }} | grep -q ${{ env.DEPLOYMENT_BRANCH }}; then
             echo "Deployment branch exists. Updating it..."
-            
+
             # Fetch the deployment branch
             git fetch origin ${{ env.DEPLOYMENT_BRANCH }}:${{ env.DEPLOYMENT_BRANCH }}
-            
+
             # Create a worktree for the deployment branch
             git worktree add --detach ${{ env.WORKTREE_PATH }} ${{ env.DEPLOYMENT_BRANCH }}
             cd ${{ env.WORKTREE_PATH }}
-            
+
             # Preserve data directory if it exists
             if [ -d "${{ env.DATA_DIR }}" ]; then
               echo "Preserving data directory..."
               mkdir -p /tmp/data-backup
               cp -r ${{ env.DATA_DIR }}/* /tmp/data-backup/
+              
+              # Verify data backup integrity
+              if [ ! "$(ls -A /tmp/data-backup)" ]; then
+                echo "Warning: Data backup appears empty but source directory is not!"
+                ls -la ${{ env.DATA_DIR }}
+              else
+                echo "Data backup successful with $(find /tmp/data-backup -type f | wc -l) files"
+              fi
             fi
-            
-            # Remove all files except .git
-            find . -mindepth 1 -not -path "./.git*" -delete
-            
+
+            # Safer file deletion - explicitly exclude important directories
+            # Instead of: find . -mindepth 1 -not -path "./.git*" -delete
+            find . -mindepth 1 \
+              -not -path "./.git*" \
+              -not -path "./.github*" \
+              -not -path "./.nojekyll" \
+              -delete
+
             # Restore data directory if backed up
             if [ -d "/tmp/data-backup" ] && [ "$(ls -A /tmp/data-backup)" ]; then
               echo "Restoring data directory..."
               mkdir -p ${{ env.DATA_DIR }}
               cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
+              
+              # Verify data restoration
+              echo "Verifying data restoration..."
+              if [ "$(find ${{ env.DATA_DIR }} -type f | wc -l)" -eq "$(find /tmp/data-backup -type f | wc -l)" ]; then
+                echo "Data restoration verified successfully"
+              else
+                echo "Warning: Data restoration count mismatch"
+                ls -la ${{ env.DATA_DIR }}
+              fi
+              
               rm -rf /tmp/data-backup
             fi
-            
+
             # Copy frontend build files
             echo "Copying frontend build files..."
             cp -r $GITHUB_WORKSPACE/${{ env.FRONTEND_BUILD_DIR }}/* .
-            
+
             # Ensure .nojekyll file exists to disable Jekyll processing
             touch .nojekyll
-            
+
             # Commit and push changes
             git add .
             if git diff --staged --quiet; then
@@ -128,28 +160,38 @@ jobs:
               git commit -m "Update frontend files from commit: ${{ github.sha }}"
               git push origin ${{ env.DEPLOYMENT_BRANCH }}
             fi
-            
+
             # Clean up
             cd $GITHUB_WORKSPACE
             git worktree remove ${{ env.WORKTREE_PATH }}
-            
+
           else
             echo "Deployment branch does not exist. Creating it..."
             # Create new orphan branch
             git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
             git rm -rf .
-            
+
             # Copy frontend build files
             echo "Copying frontend build files..."
             cp -r $GITHUB_WORKSPACE/${{ env.FRONTEND_BUILD_DIR }}/* .
-            
+
             # Create .nojekyll file to disable Jekyll processing
             touch .nojekyll
-            
-            # Create empty data directory
+
+            # Create empty data directory with enhanced metadata
             mkdir -p ${{ env.DATA_DIR }}
-            echo '{"last_updated": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "message": "Initial frontend deployment, awaiting data generation"}' > ${{ env.DATA_DIR }}/placeholder.json
-            
+            echo '{
+              "last_updated": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+              "message": "Initial frontend deployment, awaiting data generation",
+              "deployment_info": {
+                "commit_sha": "${{ github.sha }}",
+                "workflow_run_id": "${{ github.run_id }}",
+                "workflow_name": "${{ github.workflow }}",
+                "triggered_by": "${{ github.actor }}",
+                "repository": "${{ github.repository }}"
+              }
+            }' > ${{ env.DATA_DIR }}/placeholder.json
+
             git add .
             git commit -m "Initial frontend deployment from commit: ${{ github.sha }}"
             git push -u origin ${{ env.DEPLOYMENT_BRANCH }}
@@ -157,16 +199,42 @@ jobs:
 
       - name: Create GitHub Pages artifact
         run: |
+          set -e
           echo "Creating GitHub Pages artifact from deployment branch..."
           git fetch origin ${{ env.DEPLOYMENT_BRANCH }}
           git checkout ${{ env.DEPLOYMENT_BRANCH }}
-          
+
           # Verify content before creating artifact
           echo "--- Files at the root level ---"
           ls -la
           
-          tar -czf $GITHUB_WORKSPACE/github-pages.tar.gz .
+          # Verify critical files exist
+          if [ ! -f "index.html" ]; then
+            echo "Error: index.html not found in deployment branch"
+            exit 1
+          fi
           
+          if [ ! -f ".nojekyll" ]; then
+            echo "Error: .nojekyll file not found in deployment branch"
+            exit 1
+          fi
+          
+          if [ ! -d "${{ env.DATA_DIR }}" ]; then
+            echo "Warning: Data directory not found in deployment branch"
+          else
+            echo "Data directory contains $(find ${{ env.DATA_DIR }} -type f | wc -l) files"
+          fi
+
+          tar -czf $GITHUB_WORKSPACE/github-pages.tar.gz .
+
+          # Verify the artifact was created successfully
+          if [ ! -f "$GITHUB_WORKSPACE/github-pages.tar.gz" ]; then
+            echo "Error: Failed to create GitHub Pages artifact"
+            exit 1
+          fi
+          
+          echo "GitHub Pages artifact created successfully ($(du -h $GITHUB_WORKSPACE/github-pages.tar.gz | cut -f1) in size)"
+
           # Return to previous branch
           git checkout -
 
@@ -189,7 +257,9 @@ jobs:
         uses: actions/deploy-pages@v4
         with:
           artifact_name: github-pages
-          
+
       - name: Output GitHub Pages URL
         run: |
+          set -e
           echo "GitHub Pages site deployed to: ${{ steps.deployment.outputs.page_url }}"
+          echo "Deployment completed successfully at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
