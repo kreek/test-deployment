@@ -52,7 +52,9 @@ jobs:
             # Clone the existing deployment branch to preserve frontend files
             git fetch origin ${{ env.DEPLOYMENT_BRANCH }}
             mkdir -p /tmp/deployment-branch
-            git worktree add --detach /tmp/deployment-branch origin/${{ env.DEPLOYMENT_BRANCH }}
+
+            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}:${{ env.DEPLOYMENT_BRANCH }}
+            git worktree add --detach /tmp/deployment-branch ${{ env.DEPLOYMENT_BRANCH }}
             cd /tmp/deployment-branch
             
             # Update only data files
@@ -76,6 +78,7 @@ jobs:
             cd $GITHUB_WORKSPACE
             git worktree remove /tmp/deployment-branch
           else
+            echo "Deployment branch does not exist. Creating it..."
             # Create new orphan branch with just data
             git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
             git rm -rf .
@@ -94,7 +97,7 @@ jobs:
             
             git add ${{ env.DATA_DIR }} .nojekyll
             git commit -m "Initial data files"
-            git push origin ${{ env.DEPLOYMENT_BRANCH }}
+            git push -u origin ${{ env.DEPLOYMENT_BRANCH }}
           fi
 
       - name: Trigger frontend deployment
