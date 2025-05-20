@@ -1,13 +1,13 @@
 # Test Deployment Workflow
 
-This repository demonstrates a GitHub Actions workflow for deploying a web application with separate data and frontend components, avoiding merge conflicts using a clean branch strategy.
+This repository demonstrates a GitHub Actions workflow for deploying a web application with separate data and frontend components to GitHub Pages using GitHub's official Pages actions.
 
 ## Features
 
 - Separate workflows for data updates and frontend deployments
-- Clean `github-pages-deployment` branch with no connection to previous history
-- File preservation between different workflow runs
-- Git worktree for efficient branch content updates
+- GitHub's official Pages actions for deployment
+- Artifact-based deployment system that eliminates merge conflicts
+- Content preservation between different workflow runs
 
 ## Structure
 
@@ -85,34 +85,43 @@ npm run build
 npm run preview
 ```
 
-## Usage in GitHub Actions
+## Deployment Workflows
 
-### Data Generation
+### Data Generation Workflow
 
-The data generation workflow:
-- Runs on schedule or manual trigger
+The data generation workflow (`generate-data.yml`):
+- Triggers on:
+  - Push to main (data or scripts changes)
+  - Manual workflow dispatch
+  - Schedule (every 6 hours)
 - Generates sample data
-- Updates only the data directory in the deployment branch
-- Preserves frontend files
+- Creates a GitHub Pages artifact containing only the data files
+- Deploys the artifact to GitHub Pages while preserving frontend files
 
-### Frontend Deployment
+### Frontend Deployment Workflow
 
-The frontend deployment workflow:
-- Runs on push to main or when triggered by the data workflow
+The frontend deployment workflow (`deploy-frontend.yml`):
+- Triggers on:
+  - Push to main (frontend changes)
+  - Manual workflow dispatch
 - Builds the SvelteKit application
-- Updates only the frontend files in the deployment branch
-- Preserves data files
+- Creates a GitHub Pages artifact containing the frontend build
+- Preserves existing data files by fetching them from the live site
+- Deploys the complete artifact to GitHub Pages
 
 ## GitHub Pages Setup
 
-For this to work correctly with GitHub Pages:
+For this workflow to work correctly with GitHub Pages:
+
 1. Go to your repository settings
 2. Navigate to Pages
-3. Set the source to the `github-pages-deployment` branch
+3. Under "Build and deployment":
+   - Select "GitHub Actions" as the source
 
 ## Testing the Workflow
 
 1. Push this repository to GitHub
 2. Run the "Generate Data" workflow manually from the Actions tab
-3. The workflows will set up the deployment branch and deploy the site
-4. Visit the GitHub Pages URL to verify the site loads correctly
+3. The workflow will generate data and deploy it to GitHub Pages
+4. Run the "Deploy Frontend" workflow to build and deploy the frontend
+5. Visit the GitHub Pages URL to verify the site loads correctly with both frontend and data
