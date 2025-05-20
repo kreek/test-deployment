@@ -14,8 +14,10 @@ const config = {
       strict: true
     }),
     paths: {
-      base: process.env.NODE_ENV === 'production' ? '/test-deployment' : ''
-    }
+      base: '/test-deployment'
+    },
+    // Required for SPA mode on GitHub Pages
+    appDir: 'app'
   }
 };
 
