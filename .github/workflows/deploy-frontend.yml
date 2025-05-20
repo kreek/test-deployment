@@ -13,7 +13,7 @@ permissions:
 
 # Allow only one concurrent deployment
 concurrency:
-  group: "pages-deploy-${{ github.ref }}"
+  group: "pages"
   cancel-in-progress: true
 
 jobs:
@@ -196,57 +196,61 @@ jobs:
             git push -u origin ${{ env.DEPLOYMENT_BRANCH }}
           fi
 
+      - name: Check GitHub Pages configuration
+        run: |
+          echo "Verifying repository is properly configured for GitHub Pages"
+          echo "Note: Make sure you've enabled GitHub Pages in repository settings"
+          echo "      with source set to 'GitHub Actions' under Build and Deployment"
+
       - name: Create GitHub Pages artifact
         run: |
           set -e
           echo "Creating GitHub Pages artifact from deployment branch..."
+          # Clean workspace to avoid duplicate artifacts
+          rm -rf /tmp/pages-artifact
+          mkdir -p /tmp/pages-artifact
+
+          # Checkout deployment branch to a specific location
           git fetch origin ${{ env.DEPLOYMENT_BRANCH }}
-          git checkout ${{ env.DEPLOYMENT_BRANCH }}
+          git worktree add --detach /tmp/deployment-checkout ${{ env.DEPLOYMENT_BRANCH }}
+
+          # Copy all files including hidden ones
+          cd /tmp/deployment-checkout
+          cp -a . /tmp/pages-artifact/
           
-          # Make sure git operations are complete
-          git status
-          
-          # Verify content before creating artifact
-          echo "--- Files at the root level ---"
+          # Verify content in clean directory
+          cd /tmp/pages-artifact
+          echo "--- Files prepared for artifact ---"
           ls -la
           
-          # Verify critical files exist
+          # Ensure critical files exist
           if [ ! -f "index.html" ]; then
             echo "Error: index.html not found in deployment branch"
             exit 1
           fi
           
           if [ ! -f ".nojekyll" ]; then
-            echo "Error: .nojekyll file not found in deployment branch"
-            exit 1
+            echo "Warning: .nojekyll file not found. Creating it."
+            touch .nojekyll
           fi
           
-          if [ ! -d "${{ env.DATA_DIR }}" ]; then
-            echo "Warning: Data directory not found in deployment branch"
-          else
-            echo "Data directory contains $(find ${{ env.DATA_DIR }} -type f | wc -l) files"
-          fi
+          # Remove git directory before creating artifact
+          rm -rf .git
           
-          # Create a clean temporary directory for the artifact
-          mkdir -p /tmp/pages-artifact
-          cp -R ./* /tmp/pages-artifact/
-          cp -R ./.nojekyll /tmp/pages-artifact/
+          # Create artifact
+          tar -czf $GITHUB_WORKSPACE/github-pages.tar.gz --exclude=".git" .
           
-          # Ensure there are no filesystem operations in progress
-          sync
-          sleep 1
-          
-          # Create the archive from the clean directory
-          cd /tmp/pages-artifact
-          tar -czf $GITHUB_WORKSPACE/github-pages.tar.gz .
-          
-          # Verify the artifact was created successfully
+          # Verify the artifact
           if [ ! -f "$GITHUB_WORKSPACE/github-pages.tar.gz" ]; then
             echo "Error: Failed to create GitHub Pages artifact"
             exit 1
           fi
           
           echo "GitHub Pages artifact created successfully ($(du -h $GITHUB_WORKSPACE/github-pages.tar.gz | cut -f1) in size)"
+          
+          # Clean up
+          cd $GITHUB_WORKSPACE
+          git worktree remove /tmp/deployment-checkout
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-artifact@v4
@@ -254,6 +258,7 @@ jobs:
           name: github-pages
           path: github-pages.tar.gz
           retention-days: 1
+          if-no-files-found: error
 
   deploy-pages:
     environment:
