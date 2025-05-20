@@ -1,7 +1,9 @@
 import adapter from '@sveltejs/adapter-static';
+import { vitePreprocess } from '@sveltejs/kit/vite';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
+  preprocess: vitePreprocess(),
   kit: {
     adapter: adapter({
       // default options are shown
@@ -12,8 +14,7 @@ const config = {
       strict: true
     }),
     paths: {
-      base: process.env.NODE_ENV === 'production' ? '/test-deployment' : '',
-      assets: process.env.NODE_ENV === 'production' ? '/test-deployment' : ''
+      base: process.env.NODE_ENV === 'production' ? '/test-deployment' : ''
     }
   }
 };
