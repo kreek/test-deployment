@@ -54,11 +54,14 @@ jobs:
 
       - name: Update deployment branch with frontend build
         run: |
-          # Checkout deployment branch if it exists
+          # Check if deployment branch exists (properly handling non-zero exit code)
           git fetch origin
-          if git rev-parse --verify origin/${{ env.DEPLOYMENT_BRANCH }} > /dev/null 2>&1; then
+          if git ls-remote --heads origin ${{ env.DEPLOYMENT_BRANCH }} | grep -q ${{ env.DEPLOYMENT_BRANCH }}; then
+            echo "Deployment branch exists. Updating it..."
+            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}:${{ env.DEPLOYMENT_BRANCH }}
             git checkout ${{ env.DEPLOYMENT_BRANCH }}
           else
+            echo "Deployment branch does not exist. Creating it..."
             # Create new orphan branch if it doesn't exist
             git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
             git rm -rf .
@@ -80,7 +83,23 @@ jobs:
           fi
           
           # Copy frontend build files
-          cp -r ./frontend/build/* .
+          # First check if build directory exists at standard SvelteKit location
+          if [ -d "./frontend/build" ]; then
+            cp -r ./frontend/build/* .
+          # Otherwise check if it's at the .svelte-kit/output/prerendered directory
+          elif [ -d "./frontend/.svelte-kit/output/prerendered" ]; then
+            cp -r ./frontend/.svelte-kit/output/prerendered/* .
+          # As a last resort, check if it's at the standard static build location
+          else
+            echo "Checking alternative build locations..."
+            find ./frontend -type d -name "build" -o -name "dist" -o -name "public" | while read dir; do
+              if [ -d "$dir" ] && [ "$(ls -A $dir)" ]; then
+                echo "Found build files at $dir"
+                cp -r $dir/* .
+                break
+              fi
+            done
+          fi
           
           # Create .nojekyll file to disable Jekyll processing
           touch .nojekyll
