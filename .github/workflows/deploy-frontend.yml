@@ -1,247 +1,156 @@
 name: Deploy Frontend
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
   repository_dispatch:
     types: [trigger-frontend-build]
+  workflow_dispatch:
 
+# Sets permissions of the GITHUB_TOKEN
 permissions:
   contents: write
   pages: write
   id-token: write
-  deployments: write
 
+# Allow only one concurrent deployment
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "pages-deploy-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     env:
-      DATA_DIR: data
+      FRONTEND_DIR: frontend
+      BUILD_DIR: frontend/build
       DEPLOYMENT_BRANCH: github-pages-deployment
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Fetches all history, useful for accessing other branches
-
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: ./frontend/package-lock.json
-
-      - name: Prepare data for SvelteKit build
-        run: |
-          echo "Preparing data for SvelteKit build by fetching from ${{ env.DEPLOYMENT_BRANCH }}"
-          mkdir -p ./frontend/static/data
-          
-          # Check if the deployment branch exists remotely
-          if git ls-remote --exit-code --heads origin ${{ env.DEPLOYMENT_BRANCH }}; then
-            echo "Fetching stats.json from origin/${{ env.DEPLOYMENT_BRANCH }}"
-            # Fetch the specific branch (shallow fetch is fine)
-            git fetch --depth=1 origin ${{ env.DEPLOYMENT_BRANCH }}
-            # Try to show the file from the fetched branch and save it
-            # The path in the deployment branch is 'data/stats.json'
-            if git show origin/${{ env.DEPLOYMENT_BRANCH }}:${{ env.DATA_DIR }}/stats.json > ./frontend/static/${{ env.DATA_DIR }}/stats.json 2>/dev/null; then
-              echo "Successfully fetched ${{ env.DATA_DIR }}/stats.json from origin/${{ env.DEPLOYMENT_BRANCH }}:${{ env.DATA_DIR }}/stats.json for the build."
-            else
-              echo "WARN: Failed to retrieve ${{ env.DATA_DIR }}/stats.json from origin/${{ env.DEPLOYMENT_BRANCH }}. Using placeholder."
-              echo '{"last_updated": "placeholder-fetch-failed", "stats": {"users":0,"events":0,"average_response_time":0}, "events": []}' > ./frontend/static/${{ env.DATA_DIR }}/stats.json
-            fi
-          else
-            echo "WARN: Deployment branch ${{ env.DEPLOYMENT_BRANCH }} not found on origin. Using placeholder for build."
-            echo '{"last_updated": "placeholder-branch-not-found", "stats": {"users":0,"events":0,"average_response_time":0}, "events": []}' > ./frontend/static/${{ env.DATA_DIR }}/stats.json
-          fi
-          
-          echo "Contents of ./frontend/static/${{ env.DATA_DIR }}/stats.json for build:"
-          cat ./frontend/static/${{ env.DATA_DIR }}/stats.json
-          echo "Listing ./frontend/static/${{ env.DATA_DIR }}/:"
-          ls -la ./frontend/static/${{ env.DATA_DIR }}
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: ./frontend
-        run: npm install
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm ci
 
       - name: Build frontend
-        working-directory: ./frontend
-        run: npm run build # Check logs here for any prerendering errors
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm run build
 
-      - name: Save build output
-        run: |
-          echo "Saving build output..."
-          mkdir -p /tmp/build-output
-          if [ -d "./frontend/build" ] && [ "$(ls -A ./frontend/build)" ]; then
-            echo "Found build files at ./frontend/build"
-            cp -r ./frontend/build/* /tmp/build-output/
-          elif [ -d "./frontend/.svelte-kit/output/prerendered" ] && [ "$(ls -A ./frontend/.svelte-kit/output/prerendered)" ]; then
-            echo "Found build files at ./frontend/.svelte-kit/output/prerendered"
-            cp -r ./frontend/.svelte-kit/output/prerendered/* /tmp/build-output/
-          else
-            echo "ERROR: SvelteKit build output not found in expected locations (./frontend/build or ./frontend/.svelte-kit/output/prerendered)!"
-            ls -la ./frontend/
-            exit 1
-          fi
-          echo "Build output saved. Contents of /tmp/build-output/:"
-          ls -la /tmp/build-output/
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: ${{ env.BUILD_DIR }}
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      FRONTEND_BUILD_DIR: frontend-build
+      DATA_DIR: data
+      DEPLOYMENT_BRANCH: github-pages-deployment
+      WORKTREE_PATH: /tmp/deployment-branch
+
+    steps:
+      - name: Checkout repository (for Git context)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ${{ env.FRONTEND_BUILD_DIR }}
 
       - name: Configure Git
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-      - name: Update deployment branch with frontend build
+      - name: Update deployment branch with frontend files
         run: |
-          git fetch origin
-          if git ls-remote --exit-code --heads origin ${{ env.DEPLOYMENT_BRANCH }}; then
+          # Check if deployment branch exists
+          if git ls-remote --heads origin ${{ env.DEPLOYMENT_BRANCH }} | grep -q ${{ env.DEPLOYMENT_BRANCH }}; then
             echo "Deployment branch exists. Updating it..."
-            # Checkout the branch, creating it locally if it doesn't exist but tracking remote
-            git checkout -B ${{ env.DEPLOYMENT_BRANCH }} origin/${{ env.DEPLOYMENT_BRANCH }}
-          else
-            echo "Deployment branch does not exist on origin. Creating it as orphan..."
-            git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
-            git rm -rf . # Clean the orphan branch's working directory
-          fi
-          
-          # Preserve data directory if it exists on the branch
-          if [ -d "${{ env.DATA_DIR }}" ]; then
-            echo "Backing up existing ${{ env.DATA_DIR }} from deployment branch..."
-            mkdir -p /tmp/data-backup
-            # Ensure source directory for cp is not empty to avoid errors
-            if [ "$(ls -A ${{ env.DATA_DIR }})" ]; then
+            
+            # Fetch the deployment branch
+            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}:${{ env.DEPLOYMENT_BRANCH }}
+            
+            # Create a worktree for the deployment branch
+            git worktree add --detach ${{ env.WORKTREE_PATH }} ${{ env.DEPLOYMENT_BRANCH }}
+            cd ${{ env.WORKTREE_PATH }}
+            
+            # Preserve data directory if it exists
+            if [ -d "${{ env.DATA_DIR }}" ]; then
+              echo "Preserving data directory..."
+              mkdir -p /tmp/data-backup
               cp -r ${{ env.DATA_DIR }}/* /tmp/data-backup/
-            else
-              echo "${{ env.DATA_DIR }} is empty, nothing to back up from it."
             fi
-            # We will remove the original directory in the next step
+            
+            # Remove all files except .git
+            find . -mindepth 1 -not -path "./.git*" -delete
+            
+            # Restore data directory if backed up
+            if [ -d "/tmp/data-backup" ] && [ "$(ls -A /tmp/data-backup)" ]; then
+              echo "Restoring data directory..."
+              mkdir -p ${{ env.DATA_DIR }}
+              cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
+              rm -rf /tmp/data-backup
+            fi
+            
+            # Copy frontend build files
+            echo "Copying frontend build files..."
+            cp -r $GITHUB_WORKSPACE/${{ env.FRONTEND_BUILD_DIR }}/* .
+            
+            # Ensure .nojekyll file exists to disable Jekyll processing
+            touch .nojekyll
+            
+            # Commit and push changes
+            git add .
+            if git diff --staged --quiet; then
+              echo "No changes to commit for frontend files."
+            else
+              git commit -m "Update frontend files from commit: ${{ github.sha }}"
+              git push origin ${{ env.DEPLOYMENT_BRANCH }}
+            fi
+            
+            # Clean up
+            cd $GITHUB_WORKSPACE
+            git worktree remove ${{ env.WORKTREE_PATH }}
+            
           else
-            echo "No existing ${{ env.DATA_DIR }} directory found on the branch to back up."
-          fi
-          
-          # Clean the working directory, preserving only .git.
-          # The 'data' directory (if it existed) was backed up and will be removed here.
-          echo "Cleaning working directory, preserving only .git..."
-          find . -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} \;
-
-          echo "Copying saved build output to deployment branch root..."
-          if [ -d "/tmp/build-output" ] && [ "$(ls -A /tmp/build-output)" ]; then
-            cp -r /tmp/build-output/* .
-            echo "Build files copied successfully to root."
-          else
-            echo "ERROR: No build files found in /tmp/build-output to copy!"
-            exit 1
-          fi
-
-          # Restore data directory if it was backed up
-          if [ -d "/tmp/data-backup" ] && [ "$(ls -A /tmp/data-backup)" ]; then
-            echo "Restoring backed up ${{ env.DATA_DIR }}..."
+            echo "Deployment branch does not exist. Creating it..."
+            # Create new orphan branch
+            git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
+            git rm -rf .
+            
+            # Copy frontend build files
+            echo "Copying frontend build files..."
+            cp -r $GITHUB_WORKSPACE/${{ env.FRONTEND_BUILD_DIR }}/* .
+            
+            # Create .nojekyll file to disable Jekyll processing
+            touch .nojekyll
+            
+            # Create empty data directory
             mkdir -p ${{ env.DATA_DIR }}
-            cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
-          else
-            echo "No data backup found or backup was empty. ${{ env.DATA_DIR }} will be created if missing."
-            # Fallback logic for initial data can be added here if necessary,
-            # but generate-data.yml should be the primary source for data on the deployment branch.
+            echo '{"last_updated": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "message": "Initial frontend deployment, awaiting data generation"}' > ${{ env.DATA_DIR }}/placeholder.json
+            
+            git add .
+            git commit -m "Initial frontend deployment from commit: ${{ github.sha }}"
+            git push -u origin ${{ env.DEPLOYMENT_BRANCH }}
           fi
-          
-          # Ensure data directory exists, even if empty, if expected by the site
-          mkdir -p ${{ env.DATA_DIR }}
-          if [ ! -f "${{ env.DATA_DIR }}/stats.json" ]; then
-            echo "WARN: ${{ env.DATA_DIR }}/stats.json is missing after build/data restore. Creating placeholder."
-            # This placeholder should ideally match the structure expected by your SvelteKit app
-            echo '{"last_updated": "placeholder-final-check-'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "stats": {"users":0,"events":0,"average_response_time":0}, "events": []}' > ${{ env.DATA_DIR }}/stats.json
-          fi
-
-          touch .nojekyll
-          
-          git add -A
-          if git diff --staged --quiet; then
-            echo "No changes to commit for frontend build."
-          else
-            git commit -m "Update frontend build and integrate data"
-            git push origin ${{ env.DEPLOYMENT_BRANCH }}
-          fi
-
-      - name: Inspect final deployment branch state (before artifact creation)
-        run: |
-          echo "--- Files at the root of deployment branch working copy ---"
-          ls -la
-          echo "--- Files in ${{ env.DATA_DIR }}/ (if it exists) ---"
-          if [ -d "${{ env.DATA_DIR }}" ]; then ls -la ${{ env.DATA_DIR }}/; else echo "${{ env.DATA_DIR }}/ does not exist"; fi
-
-      - name: Create GitHub Pages artifact
-        run: |
-          echo "Creating GitHub Pages artifact from current branch content..."
-          
-          if [ ! -f "./index.html" ]; then
-            echo "CRITICAL WARNING: index.html not found in current directory for artifact creation!"
-            ls -la . 
-          fi
-          if [ ! -d "./${{ env.DATA_DIR }}" ] || [ ! -f "./${{ env.DATA_DIR }}/stats.json" ]; then
-            echo "CRITICAL WARNING: ./${{ env.DATA_DIR }}/stats.json not found for artifact creation!"
-            ls -la ./${{ env.DATA_DIR }} || echo "./${{ env.DATA_DIR }} directory does not exist"
-          fi
-
-          tar -czf $GITHUB_WORKSPACE/github-pages.tar.gz .
-          
-      - name: Inspect GitHub Pages artifact
-        run: |
-          echo "--- Artifact Size ---"
-          ls -lh $GITHUB_WORKSPACE/github-pages.tar.gz
-          echo "--- Artifact Top-Level Contents (first 20) ---"
-          tar -tf $GITHUB_WORKSPACE/github-pages.tar.gz | head -n 20
-          echo "--- Verifying artifact structure ---"
-          mkdir -p /tmp/verify-artifact-contents
-          tar -xzf $GITHUB_WORKSPACE/github-pages.tar.gz -C /tmp/verify-artifact-contents
-          echo "Contents of extracted artifact root:"
-          ls -la /tmp/verify-artifact-contents
-          echo "Contents of extracted artifact ${{ env.DATA_DIR }}/ (if it exists):"
-          if [ -d "/tmp/verify-artifact-contents/${{ env.DATA_DIR }}" ]; then ls -la /tmp/verify-artifact-contents/${{ env.DATA_DIR }}/; else echo "${{ env.DATA_DIR }}/ not in artifact"; fi
-          
-          if [ -f "/tmp/verify-artifact-contents/index.html" ]; then
-            echo "index.html FOUND in artifact."
-          else
-            echo "ERROR: index.html NOT FOUND in artifact."
-          fi
-          if [ -f "/tmp/verify-artifact-contents/${{ env.DATA_DIR }}/stats.json" ]; then
-            echo "${{ env.DATA_DIR }}/stats.json FOUND in artifact."
-          else
-            echo "ERROR: ${{ env.DATA_DIR }}/stats.json NOT FOUND in artifact."
-          fi
-
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: github-pages
-          path: github-pages.tar.gz
-          retention-days: 1
-
-  deploy-pages:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build-and-deploy
-    steps:
-      - name: Debug artifact name for deployment
-        run: |
-          echo "Starting GitHub Pages deployment with artifact: github-pages"
-          
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages 
-          timeout: 1200000
-          
-      - name: Debug deployment status
-        if: always()
-        run: |
-          echo "Deployment ID: ${{ steps.deployment.outputs.deployment_id || 'unknown' }}"
-          echo "Page URL: ${{ steps.deployment.outputs.page_url || 'unknown' }}"
