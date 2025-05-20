@@ -1,13 +1,13 @@
 # Test Deployment Workflow
 
-This repository demonstrates a GitHub Actions workflow for deploying a web application with separate data and frontend components to GitHub Pages using GitHub's official Pages actions.
+This repository demonstrates a GitHub Actions workflow for deploying a web application with separate data and frontend components to GitHub Pages using Git worktrees.
 
 ## Features
 
 - Separate workflows for data updates and frontend deployments
-- GitHub's official Pages actions for deployment
-- Artifact-based deployment system that eliminates merge conflicts
+- Git worktree-based deployment system that eliminates merge conflicts
 - Content preservation between different workflow runs
+- Clean deployment branch strategy
 
 ## Structure
 
@@ -95,8 +95,8 @@ The data generation workflow (`generate-data.yml`):
   - Manual workflow dispatch
   - Schedule (every 6 hours)
 - Generates sample data
-- Creates a GitHub Pages artifact containing only the data files
-- Deploys the artifact to GitHub Pages while preserving frontend files
+- Updates only the data files in the `github-pages-deployment` branch using git worktree
+- Triggers the frontend deployment workflow when run via schedule or manual dispatch
 
 ### Frontend Deployment Workflow
 
@@ -105,9 +105,8 @@ The frontend deployment workflow (`deploy-frontend.yml`):
   - Push to main (frontend changes)
   - Manual workflow dispatch
 - Builds the SvelteKit application
-- Creates a GitHub Pages artifact containing the frontend build
-- Preserves existing data files by fetching them from the live site
-- Deploys the complete artifact to GitHub Pages
+- Updates the frontend files in the `github-pages-deployment` branch using git worktree
+- Preserves existing data files during deployment
 
 ## GitHub Pages Setup
 
@@ -116,12 +115,13 @@ For this workflow to work correctly with GitHub Pages:
 1. Go to your repository settings
 2. Navigate to Pages
 3. Under "Build and deployment":
-   - Select "GitHub Actions" as the source
+   - Select "Deploy from a branch"
+   - Select the `github-pages-deployment` branch
 
 ## Testing the Workflow
 
 1. Push this repository to GitHub
 2. Run the "Generate Data" workflow manually from the Actions tab
-3. The workflow will generate data and deploy it to GitHub Pages
-4. Run the "Deploy Frontend" workflow to build and deploy the frontend
+3. The workflow will generate data and update the deployment branch
+4. Run the "Deploy Frontend" workflow to build and update the frontend files
 5. Visit the GitHub Pages URL to verify the site loads correctly with both frontend and data
