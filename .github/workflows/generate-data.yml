@@ -46,10 +46,12 @@ jobs:
 
       - name: Update deployment branch with data
         run: |
-          # Check if deployment branch exists
-          if git rev-parse --verify origin/${{ env.DEPLOYMENT_BRANCH }} > /dev/null 2>&1; then
+          # Check if deployment branch exists (properly handling non-zero exit code)
+          if git ls-remote --heads origin ${{ env.DEPLOYMENT_BRANCH }} | grep -q ${{ env.DEPLOYMENT_BRANCH }}; then
+            echo "Deployment branch exists. Updating it..."
             # Clone the existing deployment branch to preserve frontend files
             mkdir -p /tmp/deployment-branch
+            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}:${{ env.DEPLOYMENT_BRANCH }}
             git worktree add --detach /tmp/deployment-branch ${{ env.DEPLOYMENT_BRANCH }}
             cd /tmp/deployment-branch
             
@@ -74,6 +76,7 @@ jobs:
             cd $GITHUB_WORKSPACE
             git worktree remove /tmp/deployment-branch
           else
+            echo "Deployment branch does not exist. Creating it..."
             # Create new orphan branch with just data
             git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
             git rm -rf .
@@ -92,7 +95,7 @@ jobs:
             
             git add ${{ env.DATA_DIR }} .nojekyll
             git commit -m "Initial data files"
-            git push origin ${{ env.DEPLOYMENT_BRANCH }}
+            git push -u origin ${{ env.DEPLOYMENT_BRANCH }}
           fi
 
       - name: Trigger frontend deployment
