@@ -109,7 +109,7 @@ jobs:
               echo "Preserving data directory..."
               mkdir -p /tmp/data-backup
               cp -r ${{ env.DATA_DIR }}/* /tmp/data-backup/
-              
+
               # Verify data backup integrity
               if [ ! "$(ls -A /tmp/data-backup)" ]; then
                 echo "Warning: Data backup appears empty but source directory is not!"
@@ -120,7 +120,6 @@ jobs:
             fi
 
             # Safer file deletion - explicitly exclude important directories
-            # Instead of: find . -mindepth 1 -not -path "./.git*" -delete
             find . -mindepth 1 \
               -not -path "./.git*" \
               -not -path "./.github*" \
@@ -132,7 +131,7 @@ jobs:
               echo "Restoring data directory..."
               mkdir -p ${{ env.DATA_DIR }}
               cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
-              
+
               # Verify data restoration
               echo "Verifying data restoration..."
               if [ "$(find ${{ env.DATA_DIR }} -type f | wc -l)" -eq "$(find /tmp/data-backup -type f | wc -l)" ]; then
@@ -141,7 +140,7 @@ jobs:
                 echo "Warning: Data restoration count mismatch"
                 ls -la ${{ env.DATA_DIR }}
               fi
-              
+
               rm -rf /tmp/data-backup
             fi
 
@@ -203,7 +202,10 @@ jobs:
           echo "Creating GitHub Pages artifact from deployment branch..."
           git fetch origin ${{ env.DEPLOYMENT_BRANCH }}
           git checkout ${{ env.DEPLOYMENT_BRANCH }}
-
+          
+          # Make sure git operations are complete
+          git status
+          
           # Verify content before creating artifact
           echo "--- Files at the root level ---"
           ls -la
@@ -224,9 +226,20 @@ jobs:
           else
             echo "Data directory contains $(find ${{ env.DATA_DIR }} -type f | wc -l) files"
           fi
-
+          
+          # Create a clean temporary directory for the artifact
+          mkdir -p /tmp/pages-artifact
+          cp -R ./* /tmp/pages-artifact/
+          cp -R ./.nojekyll /tmp/pages-artifact/
+          
+          # Ensure there are no filesystem operations in progress
+          sync
+          sleep 1
+          
+          # Create the archive from the clean directory
+          cd /tmp/pages-artifact
           tar -czf $GITHUB_WORKSPACE/github-pages.tar.gz .
-
+          
           # Verify the artifact was created successfully
           if [ ! -f "$GITHUB_WORKSPACE/github-pages.tar.gz" ]; then
             echo "Error: Failed to create GitHub Pages artifact"
@@ -234,9 +247,6 @@ jobs:
           fi
           
           echo "GitHub Pages artifact created successfully ($(du -h $GITHUB_WORKSPACE/github-pages.tar.gz | cut -f1) in size)"
-
-          # Return to previous branch
-          git checkout -
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-artifact@v4
