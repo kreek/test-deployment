@@ -12,6 +12,7 @@ This repository contains a GitHub Actions workflow solution for deploying a web 
 - **Branch Strategy**: Uses a clean `github-pages-deployment` branch with no connection to previous history
 - **File Preservation**: Each workflow preserves files managed by the other workflow
 - **Git Worktree**: Used to manage branch content updates without conflicting changes
+- **Commit Attribution**: Never add Claude Code attribution to git commits
 
 ## Commands
 

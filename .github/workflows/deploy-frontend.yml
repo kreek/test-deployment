@@ -4,14 +4,12 @@ on:
   repository_dispatch:
     types: [trigger-frontend-build]
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: write
   pages: write
   id-token: write
   deployments: write
 
-# Allow only one concurrent deployment
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -22,13 +20,13 @@ jobs:
     env:
       DATA_DIR: data
       DEPLOYMENT_BRANCH: github-pages-deployment
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      
+          fetch-depth: 0 # Fetches all history, useful for accessing other branches
+
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v4
@@ -40,39 +38,60 @@ jobs:
           cache: npm
           cache-dependency-path: ./frontend/package-lock.json
 
+      - name: Prepare data for SvelteKit build
+        run: |
+          echo "Preparing data for SvelteKit build by fetching from ${{ env.DEPLOYMENT_BRANCH }}"
+          mkdir -p ./frontend/static/data
+          
+          # Check if the deployment branch exists remotely
+          if git ls-remote --exit-code --heads origin ${{ env.DEPLOYMENT_BRANCH }}; then
+            echo "Fetching stats.json from origin/${{ env.DEPLOYMENT_BRANCH }}"
+            # Fetch the specific branch (shallow fetch is fine)
+            git fetch --depth=1 origin ${{ env.DEPLOYMENT_BRANCH }}
+            # Try to show the file from the fetched branch and save it
+            # The path in the deployment branch is 'data/stats.json'
+            if git show origin/${{ env.DEPLOYMENT_BRANCH }}:data/stats.json > ./frontend/static/data/stats.json 2>/dev/null; then
+              echo "Successfully fetched data/stats.json from origin/${{ env.DEPLOYMENT_BRANCH }}:data/stats.json for the build."
+            else
+              echo "WARN: Failed to retrieve data/stats.json from origin/${{ env.DEPLOYMENT_BRANCH }}:data/stats.json. Using placeholder."
+              echo '{"last_updated": "placeholder-fetch-failed", "stats": {"users":0,"events":0,"average_response_time":0}, "events": []}' > ./frontend/static/data/stats.json
+            fi
+          else
+            echo "WARN: Deployment branch ${{ env.DEPLOYMENT_BRANCH }} not found on origin. Using placeholder for build."
+            echo '{"last_updated": "placeholder-branch-not-found", "stats": {"users":0,"events":0,"average_response_time":0}, "events": []}' > ./frontend/static/data/stats.json
+          fi
+          
+          echo "Contents of ./frontend/static/data/stats.json for build:"
+          cat ./frontend/static/data/stats.json
+          echo "Listing ./frontend/static/data:"
+          ls -la ./frontend/static/data
+
       - name: Install dependencies
         working-directory: ./frontend
         run: npm install
 
       - name: Build frontend
         working-directory: ./frontend
-        run: npm run build
+        run: npm run build # Check logs here for any prerendering errors
 
-      # Save the build output before switching branches
       - name: Save build output
         run: |
           echo "Saving build output..."
           mkdir -p /tmp/build-output
+          # Your existing logic for finding build files - this seems fine for SvelteKit with adapter-static
           if [ -d "./frontend/build" ] && [ "$(ls -A ./frontend/build)" ]; then
             echo "Found build files at ./frontend/build"
             cp -r ./frontend/build/* /tmp/build-output/
           elif [ -d "./frontend/.svelte-kit/output/prerendered" ] && [ "$(ls -A ./frontend/.svelte-kit/output/prerendered)" ]; then
+            # This case might occur if 'pages' and 'assets' are different in adapter-static
             echo "Found build files at ./frontend/.svelte-kit/output/prerendered"
             cp -r ./frontend/.svelte-kit/output/prerendered/* /tmp/build-output/
           else
-            # Fallback: search for any build directory
-            echo "Searching for build directory..."
-            build_dir=$(find ./frontend -type d -name "build" -not -path "*/node_modules/*" | head -n 1)
-            if [ -n "$build_dir" ] && [ -d "$build_dir" ] && [ "$(ls -A $build_dir)" ]; then
-              echo "Found build files at $build_dir"
-              cp -r $build_dir/* /tmp/build-output/
-            else
-              echo "ERROR: Build files not found!"
-              ls -la ./frontend/
-              exit 1
-            fi
+            echo "ERROR: SvelteKit build output not found in expected locations (./frontend/build or ./frontend/.svelte-kit/output/prerendered)!"
+            ls -la ./frontend/
+            exit 1
           fi
-          echo "Build output saved. Contents:"
+          echo "Build output saved. Contents of /tmp/build-output/:"
           ls -la /tmp/build-output/
 
       - name: Configure Git
@@ -82,84 +101,132 @@ jobs:
 
       - name: Update deployment branch with frontend build
         run: |
-          # Check if deployment branch exists
+          # Your existing logic for updating the deployment branch. This part is complex but seems
+          # to intend to preserve data/ and overlay the new build.
+          # Ensure this correctly results in:
+          # - SvelteKit build files (index.html, _app, etc.) at the root.
+          # - The 'data' directory (with stats.json) at the root.
           git fetch origin
-          if git ls-remote --heads origin ${{ env.DEPLOYMENT_BRANCH }} | grep -q ${{ env.DEPLOYMENT_BRANCH }}; then
+          if git ls-remote --exit-code --heads origin ${{ env.DEPLOYMENT_BRANCH }}; then
             echo "Deployment branch exists. Updating it..."
-            git fetch origin ${{ env.DEPLOYMENT_BRANCH }}
-            git checkout -b ${{ env.DEPLOYMENT_BRANCH }} --track origin/${{ env.DEPLOYMENT_BRANCH }}
+            git checkout -B ${{ env.DEPLOYMENT_BRANCH }} origin/${{ env.DEPLOYMENT_BRANCH }}
           else
-            echo "Deployment branch does not exist. Creating it..."
-            # Create new orphan branch if it doesn't exist
+            echo "Deployment branch does not exist. Creating it as orphan..."
             git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
             git rm -rf .
           fi
           
-          # Preserve data directory if it exists
+          # Preserve data directory if it exists on the branch
           if [ -d "${{ env.DATA_DIR }}" ]; then
+            echo "Backing up existing ${{ env.DATA_DIR }} from deployment branch..."
             mkdir -p /tmp/data-backup
             cp -r ${{ env.DATA_DIR }}/* /tmp/data-backup/
+            rm -rf ${{ env.DATA_DIR }} # Remove current data to avoid merge issues if structure changed
           fi
           
-          # Clean the working directory except for .git
-          find . -mindepth 1 -path ./.git -prune -o -exec rm -rf {} \; 2> /dev/null || true
-          
-          # Restore data directory
-          if [ -d "/tmp/data-backup" ]; then
-            mkdir -p ${{ env.DATA_DIR }}
-            cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
-          fi
-          
-          # Copy the saved build output files
-          echo "Copying saved build output..."
+          # Clean the working directory except for .git, to prepare for new build files
+          # Be careful with 'find . -mindepth 1 ... -exec rm -rf {}' if not on an orphan branch start
+          # For an orphan or freshly checked out branch, this is safer:
+          git ls-files | grep -vE '^(\.git/|${{ env.DATA_DIR }}/)' | xargs -r rm -rf
+          # If specific files from build should be removed that are NOT in DATA_DIR, list them.
+          # This is simpler: remove all non-.git files then add build and data
+          find . -mindepth 1 ! -path './.git/*' -delete
+
+
+          echo "Copying saved build output to deployment branch root..."
           if [ -d "/tmp/build-output" ] && [ "$(ls -A /tmp/build-output)" ]; then
             cp -r /tmp/build-output/* .
-            echo "Build files copied successfully"
+            echo "Build files copied successfully to root."
           else
-            echo "ERROR: No build files found in saved output!"
-            ls -la /tmp/
+            echo "ERROR: No build files found in /tmp/build-output to copy!"
             exit 1
           fi
+
+          # Restore data directory if it was backed up
+          if [ -d "/tmp/data-backup" ]; then
+            echo "Restoring backed up ${{ env.DATA_DIR }}..."
+            mkdir -p ${{ env.DATA_DIR }}
+            cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
+          elif [ -d "$GITHUB_WORKSPACE/${{ env.DATA_DIR }}" ]; then
+             # Fallback: if no backup (e.g. first FE deploy after data deploy), copy from main checkout's data dir
+             # This might be needed if generate-data hasn't run yet or this is the first ever deploy.
+             # However, the "Prepare data for SvelteKit build" step should have fetched the definitive one.
+             # The `data` dir on the deployment branch should be the source of truth.
+             # If the deployment branch was just created orphan, it might not have data yet from generate-data.
+             # This part needs careful thought based on workflow order.
+             # For now, assume generate-data ran and populated the branch, or it's the first run.
+             echo "No data backup, checking main checkout for initial data (if any)..."
+             # This might not be what you want if generate-data is the sole source for deployment branch data
+             # mkdir -p ${{ env.DATA_DIR }}
+             # cp -r $GITHUB_WORKSPACE/${{ env.DATA_DIR }}/* ${{ env.DATA_DIR }}/
+          fi
           
-          # Create .nojekyll file to disable Jekyll processing
+          # Ensure data directory exists, even if empty, if expected by the site
+          mkdir -p ${{ env.DATA_DIR }}
+          if [ ! -f "${{ env.DATA_DIR }}/stats.json" ]; then
+            echo "WARN: ${{ env.DATA_DIR }}/stats.json is missing after build/data restore. Creating placeholder."
+            echo '{"last_updated": "placeholder-final-check", "stats": {}, "events": []}' > ${{ env.DATA_DIR }}/stats.json
+          fi
+
           touch .nojekyll
           
-          # Commit and push changes
           git add -A
           if git diff --staged --quiet; then
             echo "No changes to commit for frontend build."
           else
-            git commit -m "Update frontend build"
+            git commit -m "Update frontend build and integrate data"
             git push origin ${{ env.DEPLOYMENT_BRANCH }}
           fi
-      
-      # Create artifact from the deployment branch content for GitHub Pages
+
+      - name: Inspect final deployment branch state (before artifact creation)
+        run: |
+          echo "--- Files at the root of deployment branch working copy ---"
+          ls -la
+          echo "--- Files in ${{ env.DATA_DIR }}/ ---"
+          ls -la ${{ env.DATA_DIR }}/
+
       - name: Create GitHub Pages artifact
         run: |
-          # Create a temporary directory for the artifact
-          mkdir -p /tmp/github-pages
+          echo "Creating GitHub Pages artifact from current branch content..."
+          # Current directory is the root of the deployment branch checkout
+          # It should contain SvelteKit build files at root, and data/stats.json
           
-          # Copy all files (except .git) from the deployment branch
-          cp -r $(ls -A | grep -v "^\.git$") /tmp/github-pages/
-          
-          # Ensure required GitHub Pages files exist
-          touch /tmp/github-pages/.nojekyll
-          
-          # Make sure index.html exists in the root
-          if [ ! -f "/tmp/github-pages/index.html" ]; then
-            echo "Warning: index.html not found in deployment files"
-            ls -la /tmp/github-pages/
+          # Make sure index.html exists in the root of what we are about to tar
+          if [ ! -f "./index.html" ]; then
+            echo "CRITICAL WARNING: index.html not found in current directory for artifact creation!"
+            ls -la . # Show what IS here
           fi
-          
-          # Create the artifact
-          echo "Creating GitHub Pages artifact"
-          cd $GITHUB_WORKSPACE
-          tar -C /tmp/github-pages -czf $GITHUB_WORKSPACE/github-pages.tar.gz .
-          
-          # Check the artifact
-          echo "GitHub Pages artifact contents:"
-          mkdir -p /tmp/verify-artifact
+          if [ ! -d "./data" ] || [ ! -f "./data/stats.json" ]; then
+            echo "CRITICAL WARNING: ./data/stats.json not found for artifact creation!"
+            ls -la ./data || echo "./data directory does not exist"
+          fi
+
+          # Create the artifact from everything in the current directory
+          tar -czf $GITHUB_WORKSPACE/github-pages.tar.gz .
+
+      - name: Inspect GitHub Pages artifact
+        run: |
+          echo "--- Artifact Size ---"
+          ls -lh $GITHUB_WORKSPACE/github-pages.tar.gz
+          echo "--- Artifact Top-Level Contents (first 20) ---"
           tar -tf $GITHUB_WORKSPACE/github-pages.tar.gz | head -n 20
+          echo "--- Verifying artifact structure ---"
+          mkdir -p /tmp/verify-artifact-contents
+          tar -xzf $GITHUB_WORKSPACE/github-pages.tar.gz -C /tmp/verify-artifact-contents
+          echo "Contents of extracted artifact root:"
+          ls -la /tmp/verify-artifact-contents
+          echo "Contents of extracted artifact data/:"
+          ls -la /tmp/verify-artifact-contents/data || echo "data/ directory not in artifact"
+          if [ -f "/tmp/verify-artifact-contents/index.html" ]; then
+            echo "index.html FOUND in artifact."
+          else
+            echo "ERROR: index.html NOT FOUND in artifact."
+          fi
+          if [ -f "/tmp/verify-artifact-contents/data/stats.json" ]; then
+            echo "data/stats.json FOUND in artifact."
+          else
+            echo "ERROR: data/stats.json NOT FOUND in artifact."
+          fi
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-artifact@v4
@@ -168,7 +235,6 @@ jobs:
           path: github-pages.tar.gz
           retention-days: 1
 
-  # Deploy job for GitHub Pages
   deploy-pages:
     environment:
       name: github-pages
@@ -176,17 +242,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-deploy
     steps:
-      - name: Debug artifact
+      - name: Debug artifact name for deployment
         run: |
           echo "Starting GitHub Pages deployment with artifact: github-pages"
-          
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
         with:
-          artifact_name: github-pages
-          timeout: 1200000  # Increase timeout to 20 minutes
-          
+          artifact_name: github-pages # This should match the upload name
+          timeout: 1200000
+
       - name: Debug deployment status
         if: always()
         run: |
