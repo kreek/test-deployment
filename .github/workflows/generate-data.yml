@@ -5,6 +5,12 @@ on:
   schedule:
     - cron: '0 */6 * * *'  # Run every 6 hours
 
+# Sets permissions of the GITHUB_TOKEN
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -45,6 +51,9 @@ jobs:
             mkdir -p ${{ env.DATA_DIR }}
             cp -r $GITHUB_WORKSPACE/${{ env.DATA_DIR }}/* ${{ env.DATA_DIR }}/
             
+            # Ensure .nojekyll file exists to disable Jekyll processing
+            touch .nojekyll
+            
             # Commit and push changes
             git add .
             if git diff --staged --quiet; then
@@ -63,7 +72,11 @@ jobs:
             git rm -rf .
             mkdir -p ${{ env.DATA_DIR }}
             cp -r $GITHUB_WORKSPACE/${{ env.DATA_DIR }}/* ${{ env.DATA_DIR }}/
-            git add ${{ env.DATA_DIR }}
+            
+            # Create .nojekyll file to disable Jekyll processing
+            touch .nojekyll
+            
+            git add ${{ env.DATA_DIR }} .nojekyll
             git commit -m "Initial data files"
             git push origin ${{ env.DEPLOYMENT_BRANCH }}
           fi
