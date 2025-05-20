@@ -1,6 +1,9 @@
 name: Generate Data
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
     - cron: '0 */6 * * *'  # Run every 6 hours
@@ -30,7 +33,11 @@ jobs:
           python-version: '3.12'
 
       - name: Generate data
-        run: python scripts/generate_data.py
+        run: |
+          # Create data directory if it doesn't exist
+          mkdir -p data
+          # Run the data generation script
+          python scripts/generate_data.py
 
       - name: Configure Git
         run: |
@@ -71,7 +78,14 @@ jobs:
             git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
             git rm -rf .
             mkdir -p ${{ env.DATA_DIR }}
-            cp -r $GITHUB_WORKSPACE/${{ env.DATA_DIR }}/* ${{ env.DATA_DIR }}/
+            
+            # Check if the source directory has content before copying
+            if [ -d "$GITHUB_WORKSPACE/${{ env.DATA_DIR }}" ] && [ "$(ls -A $GITHUB_WORKSPACE/${{ env.DATA_DIR }})" ]; then
+              cp -r $GITHUB_WORKSPACE/${{ env.DATA_DIR }}/* ${{ env.DATA_DIR }}/
+            else
+              # Create an empty placeholder if no data exists yet
+              echo '{"last_updated": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "stats": {"users": 0, "events": 0, "average_response_time": 0}, "events": []}' > ${{ env.DATA_DIR }}/stats.json
+            fi
             
             # Create .nojekyll file to disable Jekyll processing
             touch .nojekyll
