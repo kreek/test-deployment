@@ -62,6 +62,12 @@ jobs:
       
       - name: Update deployment branch with frontend build
         run: |
+          # Set environment variables for SvelteKit build
+          export NODE_ENV=production
+          
+          # Set GitHub Pages specific info
+          echo "Configuring repository for GitHub Pages deployment..."
+          
           # Check if deployment branch exists
           if git ls-remote --exit-code --heads origin ${{ env.DEPLOYMENT_BRANCH }}; then
             # Clone the existing deployment branch to preserve data files
@@ -87,8 +93,36 @@ jobs:
               cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
             fi
             
-            # Create .nojekyll file
+            # Create GitHub Pages specific files
             touch .nojekyll
+            
+            # Create a 404.html that redirects to index.html for SPA
+            cat > 404.html << 'EOF'
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script>
+      // Single Page App redirection
+      const path = window.location.pathname;
+      const baseUrl = '/test-deployment';
+      if (path.startsWith(baseUrl)) {
+        window.location.href = baseUrl + '/';
+      } else {
+        window.location.href = '/';
+      }
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to home page...</p>
+  </body>
+</html>
+EOF
+            
+            # Verify all necessary files exist
+            echo "Listing deployment files:"
+            ls -la
             
             # Commit and push changes
             git add -A
@@ -113,8 +147,32 @@ jobs:
             # Create empty data directory
             mkdir -p ${{ env.DATA_DIR }}
             
-            # Create .nojekyll file
+            # Create GitHub Pages specific files
             touch .nojekyll
+            
+            # Create a 404.html that redirects to index.html for SPA
+            cat > 404.html << 'EOF'
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script>
+      // Single Page App redirection
+      const path = window.location.pathname;
+      const baseUrl = '/test-deployment';
+      if (path.startsWith(baseUrl)) {
+        window.location.href = baseUrl + '/';
+      } else {
+        window.location.href = '/';
+      }
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to home page...</p>
+  </body>
+</html>
+EOF
             
             git add -A
             git commit -m "Initial frontend build"
