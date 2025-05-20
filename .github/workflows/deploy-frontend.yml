@@ -93,32 +93,8 @@ jobs:
               cp -r /tmp/data-backup/* ${{ env.DATA_DIR }}/
             fi
             
-            # Create GitHub Pages specific files
+            # Create GitHub Pages specific file to disable Jekyll processing
             touch .nojekyll
-            
-            # Create a 404.html that redirects to index.html for SPA
-            cat > 404.html << 'EOF'
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Redirecting...</title>
-    <script>
-      // Single Page App redirection
-      const path = window.location.pathname;
-      const baseUrl = '/test-deployment';
-      if (path.startsWith(baseUrl)) {
-        window.location.href = baseUrl + '/';
-      } else {
-        window.location.href = '/';
-      }
-    </script>
-  </head>
-  <body>
-    <p>Redirecting to home page...</p>
-  </body>
-</html>
-EOF
             
             # Verify all necessary files exist
             echo "Listing deployment files:"
@@ -147,32 +123,8 @@ EOF
             # Create empty data directory
             mkdir -p ${{ env.DATA_DIR }}
             
-            # Create GitHub Pages specific files
+            # Create GitHub Pages specific file to disable Jekyll processing
             touch .nojekyll
-            
-            # Create a 404.html that redirects to index.html for SPA
-            cat > 404.html << 'EOF'
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Redirecting...</title>
-    <script>
-      // Single Page App redirection
-      const path = window.location.pathname;
-      const baseUrl = '/test-deployment';
-      if (path.startsWith(baseUrl)) {
-        window.location.href = baseUrl + '/';
-      } else {
-        window.location.href = '/';
-      }
-    </script>
-  </head>
-  <body>
-    <p>Redirecting to home page...</p>
-  </body>
-</html>
-EOF
             
             git add -A
             git commit -m "Initial frontend build"
