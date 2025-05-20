@@ -1,0 +1,79 @@
+name: Generate Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    env:
+      DATA_DIR: data
+      DEPLOYMENT_BRANCH: github-pages-deployment
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate data
+        run: python scripts/generate_data.py
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Update deployment branch with data
+        run: |
+          # Check if deployment branch exists
+          if git rev-parse --verify origin/${{ env.DEPLOYMENT_BRANCH }} > /dev/null 2>&1; then
+            # Clone the existing deployment branch to preserve frontend files
+            mkdir -p /tmp/deployment-branch
+            git worktree add --detach /tmp/deployment-branch ${{ env.DEPLOYMENT_BRANCH }}
+            cd /tmp/deployment-branch
+            
+            # Update only data files
+            rm -rf ${{ env.DATA_DIR }}
+            mkdir -p ${{ env.DATA_DIR }}
+            cp -r $GITHUB_WORKSPACE/${{ env.DATA_DIR }}/* ${{ env.DATA_DIR }}/
+            
+            # Commit and push changes
+            git add .
+            if git diff --staged --quiet; then
+              echo "No changes to commit for data files."
+            else
+              git commit -m "Update data files"
+              git push origin ${{ env.DEPLOYMENT_BRANCH }}
+            fi
+            
+            # Clean up
+            cd $GITHUB_WORKSPACE
+            git worktree remove /tmp/deployment-branch
+          else
+            # Create new orphan branch with just data
+            git checkout --orphan ${{ env.DEPLOYMENT_BRANCH }}
+            git rm -rf .
+            mkdir -p ${{ env.DATA_DIR }}
+            cp -r $GITHUB_WORKSPACE/${{ env.DATA_DIR }}/* ${{ env.DATA_DIR }}/
+            git add ${{ env.DATA_DIR }}
+            git commit -m "Initial data files"
+            git push origin ${{ env.DEPLOYMENT_BRANCH }}
+          fi
+
+      - name: Trigger frontend deployment
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d '{"event_type":"trigger-frontend-build"}'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
