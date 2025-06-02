@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-06-02T00:20:19.596947",
+  "last_updated": "2025-06-02T06:06:34.148309",
   "stats": {
     "users": 42,
     "events": 50,
@@ -7,254 +7,254 @@
   },
   "events": [
     {
-      "id": 46,
-      "name": "File download",
-      "timestamp": "2025-06-01T23:33:22Z"
-    },
-    {
-      "id": 32,
-      "name": "Database query",
-      "timestamp": "2025-06-01T18:21:38Z"
-    },
-    {
-      "id": 17,
-      "name": "Password reset",
-      "timestamp": "2025-06-01T11:53:11Z"
-    },
-    {
-      "id": 42,
-      "name": "API request",
-      "timestamp": "2025-06-01T09:59:50Z"
-    },
-    {
-      "id": 40,
-      "name": "File download",
-      "timestamp": "2025-06-01T05:06:00Z"
-    },
-    {
-      "id": 27,
+      "id": 39,
       "name": "Error occurred",
-      "timestamp": "2025-05-31T23:11:02Z"
+      "timestamp": "2025-06-02T03:05:44Z"
+    },
+    {
+      "id": 36,
+      "name": "Cache hit",
+      "timestamp": "2025-06-01T19:06:50Z"
+    },
+    {
+      "id": 48,
+      "name": "Configuration loaded",
+      "timestamp": "2025-06-01T13:19:53Z"
+    },
+    {
+      "id": 49,
+      "name": "Cache miss",
+      "timestamp": "2025-06-01T10:42:20Z"
     },
     {
       "id": 31,
+      "name": "Email sent",
+      "timestamp": "2025-06-01T06:19:40Z"
+    },
+    {
+      "id": 42,
+      "name": "Server started",
+      "timestamp": "2025-06-01T04:09:26Z"
+    },
+    {
+      "id": 6,
+      "name": "Service restart",
+      "timestamp": "2025-06-01T03:57:44Z"
+    },
+    {
+      "id": 12,
+      "name": "Backup completed",
+      "timestamp": "2025-06-01T02:36:28Z"
+    },
+    {
+      "id": 29,
+      "name": "Payment processed",
+      "timestamp": "2025-05-31T16:23:25Z"
+    },
+    {
+      "id": 3,
+      "name": "API request",
+      "timestamp": "2025-05-31T15:51:19Z"
+    },
+    {
+      "id": 7,
+      "name": "User logout",
+      "timestamp": "2025-05-31T15:24:46Z"
+    },
+    {
+      "id": 24,
+      "name": "Payment processed",
+      "timestamp": "2025-05-31T08:27:51Z"
+    },
+    {
+      "id": 5,
+      "name": "Notification sent",
+      "timestamp": "2025-05-31T06:34:50Z"
+    },
+    {
+      "id": 34,
       "name": "User registered",
-      "timestamp": "2025-05-31T17:02:01Z"
+      "timestamp": "2025-05-31T04:23:06Z"
+    },
+    {
+      "id": 23,
+      "name": "File upload",
+      "timestamp": "2025-05-31T00:19:10Z"
+    },
+    {
+      "id": 9,
+      "name": "Report generated",
+      "timestamp": "2025-05-30T23:17:51Z"
+    },
+    {
+      "id": 33,
+      "name": "Service restart",
+      "timestamp": "2025-05-30T21:01:52Z"
+    },
+    {
+      "id": 18,
+      "name": "Backup completed",
+      "timestamp": "2025-05-30T18:32:15Z"
+    },
+    {
+      "id": 13,
+      "name": "File upload",
+      "timestamp": "2025-05-30T16:19:01Z"
+    },
+    {
+      "id": 46,
+      "name": "Server started",
+      "timestamp": "2025-05-30T12:48:06Z"
+    },
+    {
+      "id": 8,
+      "name": "File upload",
+      "timestamp": "2025-05-30T03:08:29Z"
+    },
+    {
+      "id": 44,
+      "name": "Service restart",
+      "timestamp": "2025-05-30T00:41:07Z"
+    },
+    {
+      "id": 37,
+      "name": "Database query",
+      "timestamp": "2025-05-29T23:30:55Z"
     },
     {
       "id": 38,
+      "name": "Config update",
+      "timestamp": "2025-05-29T22:57:04Z"
+    },
+    {
+      "id": 26,
+      "name": "API request",
+      "timestamp": "2025-05-29T18:22:45Z"
+    },
+    {
+      "id": 10,
+      "name": "Payment processed",
+      "timestamp": "2025-05-29T18:05:03Z"
+    },
+    {
+      "id": 4,
+      "name": "Service restart",
+      "timestamp": "2025-05-29T17:51:47Z"
+    },
+    {
+      "id": 21,
+      "name": "Server started",
+      "timestamp": "2025-05-29T13:20:13Z"
+    },
+    {
+      "id": 20,
+      "name": "Service restart",
+      "timestamp": "2025-05-29T04:17:22Z"
+    },
+    {
+      "id": 32,
+      "name": "User logout",
+      "timestamp": "2025-05-29T02:39:29Z"
+    },
+    {
+      "id": 43,
+      "name": "Email sent",
+      "timestamp": "2025-05-28T15:56:03Z"
+    },
+    {
+      "id": 45,
+      "name": "Report generated",
+      "timestamp": "2025-05-28T14:47:06Z"
+    },
+    {
+      "id": 2,
+      "name": "User login",
+      "timestamp": "2025-05-28T14:02:57Z"
+    },
+    {
+      "id": 25,
+      "name": "API request",
+      "timestamp": "2025-05-28T13:15:43Z"
+    },
+    {
+      "id": 30,
+      "name": "Server started",
+      "timestamp": "2025-05-28T07:36:51Z"
+    },
+    {
+      "id": 22,
+      "name": "Config update",
+      "timestamp": "2025-05-27T23:19:53Z"
+    },
+    {
+      "id": 17,
       "name": "Error occurred",
-      "timestamp": "2025-05-31T16:18:29Z"
+      "timestamp": "2025-05-27T22:02:10Z"
+    },
+    {
+      "id": 47,
+      "name": "User registered",
+      "timestamp": "2025-05-27T14:32:38Z"
+    },
+    {
+      "id": 11,
+      "name": "Configuration loaded",
+      "timestamp": "2025-05-27T07:55:33Z"
+    },
+    {
+      "id": 41,
+      "name": "Payment processed",
+      "timestamp": "2025-05-27T04:16:47Z"
+    },
+    {
+      "id": 1,
+      "name": "Database query",
+      "timestamp": "2025-05-27T00:32:44Z"
+    },
+    {
+      "id": 15,
+      "name": "File upload",
+      "timestamp": "2025-05-26T12:04:53Z"
+    },
+    {
+      "id": 16,
+      "name": "Config update",
+      "timestamp": "2025-05-26T09:33:35Z"
+    },
+    {
+      "id": 27,
+      "name": "Cache hit",
+      "timestamp": "2025-05-26T07:16:59Z"
+    },
+    {
+      "id": 19,
+      "name": "Error occurred",
+      "timestamp": "2025-05-26T06:11:26Z"
+    },
+    {
+      "id": 50,
+      "name": "User logout",
+      "timestamp": "2025-05-25T23:59:50Z"
+    },
+    {
+      "id": 14,
+      "name": "Error occurred",
+      "timestamp": "2025-05-25T21:55:35Z"
+    },
+    {
+      "id": 28,
+      "name": "Cache miss",
+      "timestamp": "2025-05-25T21:12:22Z"
+    },
+    {
+      "id": 40,
+      "name": "Backup completed",
+      "timestamp": "2025-05-25T20:26:18Z"
     },
     {
       "id": 35,
       "name": "Password reset",
-      "timestamp": "2025-05-31T14:24:46Z"
-    },
-    {
-      "id": 16,
-      "name": "Notification sent",
-      "timestamp": "2025-05-31T11:16:59Z"
-    },
-    {
-      "id": 18,
-      "name": "Error occurred",
-      "timestamp": "2025-05-31T10:28:06Z"
-    },
-    {
-      "id": 12,
-      "name": "Service restart",
-      "timestamp": "2025-05-31T06:28:40Z"
-    },
-    {
-      "id": 19,
-      "name": "File upload",
-      "timestamp": "2025-05-31T01:58:26Z"
-    },
-    {
-      "id": 44,
-      "name": "User registered",
-      "timestamp": "2025-05-30T19:53:18Z"
-    },
-    {
-      "id": 23,
-      "name": "Report generated",
-      "timestamp": "2025-05-30T18:39:30Z"
-    },
-    {
-      "id": 21,
-      "name": "Backup completed",
-      "timestamp": "2025-05-30T18:04:37Z"
-    },
-    {
-      "id": 28,
-      "name": "File download",
-      "timestamp": "2025-05-30T02:40:58Z"
-    },
-    {
-      "id": 7,
-      "name": "Email sent",
-      "timestamp": "2025-05-30T01:02:31Z"
-    },
-    {
-      "id": 37,
-      "name": "File upload",
-      "timestamp": "2025-05-29T23:34:06Z"
-    },
-    {
-      "id": 5,
-      "name": "Configuration loaded",
-      "timestamp": "2025-05-29T22:07:57Z"
-    },
-    {
-      "id": 9,
-      "name": "Password reset",
-      "timestamp": "2025-05-29T20:50:55Z"
-    },
-    {
-      "id": 45,
-      "name": "Email sent",
-      "timestamp": "2025-05-29T20:26:57Z"
-    },
-    {
-      "id": 50,
-      "name": "User login",
-      "timestamp": "2025-05-29T15:01:22Z"
-    },
-    {
-      "id": 8,
-      "name": "Configuration loaded",
-      "timestamp": "2025-05-29T08:45:25Z"
-    },
-    {
-      "id": 4,
-      "name": "Database query",
-      "timestamp": "2025-05-29T07:06:02Z"
-    },
-    {
-      "id": 1,
-      "name": "Payment processed",
-      "timestamp": "2025-05-29T01:53:39Z"
-    },
-    {
-      "id": 13,
-      "name": "Notification sent",
-      "timestamp": "2025-05-28T19:01:48Z"
-    },
-    {
-      "id": 22,
-      "name": "Email sent",
-      "timestamp": "2025-05-28T16:46:10Z"
-    },
-    {
-      "id": 10,
-      "name": "Password reset",
-      "timestamp": "2025-05-27T15:56:42Z"
-    },
-    {
-      "id": 48,
-      "name": "Database query",
-      "timestamp": "2025-05-27T15:50:23Z"
-    },
-    {
-      "id": 34,
-      "name": "Email sent",
-      "timestamp": "2025-05-27T15:05:29Z"
-    },
-    {
-      "id": 41,
-      "name": "File download",
-      "timestamp": "2025-05-27T15:00:27Z"
-    },
-    {
-      "id": 15,
-      "name": "Config update",
-      "timestamp": "2025-05-27T14:26:48Z"
-    },
-    {
-      "id": 43,
-      "name": "Cache miss",
-      "timestamp": "2025-05-27T06:05:14Z"
-    },
-    {
-      "id": 49,
-      "name": "Service restart",
-      "timestamp": "2025-05-27T05:21:17Z"
-    },
-    {
-      "id": 3,
-      "name": "Payment processed",
-      "timestamp": "2025-05-27T00:17:02Z"
-    },
-    {
-      "id": 14,
-      "name": "Configuration loaded",
-      "timestamp": "2025-05-26T17:03:57Z"
-    },
-    {
-      "id": 30,
-      "name": "API request",
-      "timestamp": "2025-05-26T15:31:56Z"
-    },
-    {
-      "id": 11,
-      "name": "Password reset",
-      "timestamp": "2025-05-26T13:57:02Z"
-    },
-    {
-      "id": 26,
-      "name": "User registered",
-      "timestamp": "2025-05-26T10:47:14Z"
-    },
-    {
-      "id": 29,
-      "name": "User logout",
-      "timestamp": "2025-05-26T06:34:30Z"
-    },
-    {
-      "id": 6,
-      "name": "Password reset",
-      "timestamp": "2025-05-26T03:52:54Z"
-    },
-    {
-      "id": 24,
-      "name": "API request",
-      "timestamp": "2025-05-25T21:52:45Z"
-    },
-    {
-      "id": 47,
-      "name": "Config update",
-      "timestamp": "2025-05-25T10:11:05Z"
-    },
-    {
-      "id": 20,
-      "name": "Report generated",
-      "timestamp": "2025-05-25T09:23:05Z"
-    },
-    {
-      "id": 33,
-      "name": "Cache miss",
-      "timestamp": "2025-05-25T05:18:06Z"
-    },
-    {
-      "id": 25,
-      "name": "Email sent",
-      "timestamp": "2025-05-25T04:29:55Z"
-    },
-    {
-      "id": 39,
-      "name": "User login",
-      "timestamp": "2025-05-25T02:48:47Z"
-    },
-    {
-      "id": 36,
-      "name": "Cache miss",
-      "timestamp": "2025-05-25T02:31:27Z"
-    },
-    {
-      "id": 2,
-      "name": "Password reset",
-      "timestamp": "2025-05-25T01:13:24Z"
+      "timestamp": "2025-05-25T14:25:28Z"
     }
   ]
 }
